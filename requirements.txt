@@ -1,0 +1,17 @@
+torch
+open3d
+ai2thor
+# learning3d
+numpy<3.0.0,>=2.0.0
+# scipy
+matplotlib
+pandas
+# cli
+fastai
+scikit-learn
+# hugging-face
+transformers
+torchvision
+huggingface-hub
+# perfect
+pillow
