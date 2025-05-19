@@ -2,16 +2,11 @@
 
 
 ### Features:
-
-
-
-
+- using [AI2THOR](https://ai2thor.allenai.org) as indoor data generation.
 
 
 ### Future:
-
-
-
+- generate physics-based data using [AI2THOR](https://ai2thor.allenai.org) and integrate physics-informed models
 
 
 ### Ref:
