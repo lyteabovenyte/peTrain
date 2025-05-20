@@ -1,10 +1,14 @@
 """
     PointNet++ architecture with multi-scale grouping
 """
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+import open3d as o3d
 
 def square_distance(src, dst):
     """
@@ -321,3 +325,81 @@ class PointNetPP(nn.Module):
         x = x.permute(0, 2, 1)
         return x
     
+
+# # -----------------------------------------------------------------------------------------
+# # |  PointNet++ fine-tuning from https://github.com/yanx27/Pointnet_Pointnet2_pytorch.git  |
+# # -----------------------------------------------------------------------------------------
+# class PLYSegmentationDataset(Dataset):
+#     def __init__(self, ply_dir, label_dir, transform=None):
+#         self.ply_files = sorted([f for f in os.listdir(ply_dir) if f.endswith('.ply')])
+#         self.ply_dir = ply_dir
+#         self.label_dir = label_dir
+#         self.transform = transform
+
+#     def __len__(self):
+#         return len(self.ply_files)
+
+#     def __getitem__(self, idx):
+#         ply_path = os.path.join(self.ply_dir, self.ply_files[idx])
+#         label_path = os.path.join(self.label_dir, self.ply_files[idx].replace('.ply', '.npy'))
+
+#         pcd = o3d.io.read_point_cloud(ply_path)
+#         points = np.asarray(pcd.points).astype(np.float32)
+
+#         labels = np.load(label_path).astype(np.int64)
+
+#         if self.transform:
+#             points = self.transform(points)
+
+#         return torch.from_numpy(points), torch.from_numpy(labels)
+
+
+# def train():
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+#     # Dataset and DataLoader
+#     dataset = PLYSegmentationDataset(
+#         ply_dir="../data/ply_dir",
+#         label_dir="../data/label_dir"
+#     )
+#     dataloader = DataLoader(dataset, batch_size=8, shuffle=True, num_workers=4, drop_last=True)
+
+#     # Load pretrained model
+#     model = get_model(num_class=120, normal_channel=False)
+#     model = model.to(device)
+
+#     pretrained_path = "../data/models/pretrained/pointnet2_semseg_msg.pth"
+#     if os.path.exists(pretrained_path):
+#         model.load_state_dict(torch.load(pretrained_path), strict=False)
+#         print("Loaded pretrained weights.")
+
+#     criterion = get_loss()
+#     optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), weight_decay=1e-4)
+
+#     num_epochs = 5
+
+#     for epoch in range(num_epochs):
+#         model.train()
+#         running_loss = 0.0
+
+#         for i, (points, labels) in enumerate(dataloader):
+#             points = points.transpose(1, 2).to(device)  # [B, 3, N]
+#             labels = labels.to(device)
+
+#             optimizer.zero_grad()
+#             pred, _ = model(points)
+#             loss = criterion(pred, labels)
+#             loss.backward()
+#             optimizer.step()
+
+#             running_loss += loss.item()
+
+#         avg_loss = running_loss / len(dataloader)
+#         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {avg_loss:.4f}")
+
+#     torch.save(model.state_dict(), "finetuned_pointnet2.pth")
+#     print("Model saved.")
+
+
+# if __name__ == '__main__':
+#     train()
