@@ -44,7 +44,12 @@ def preprocess_all(data_dir="../data/raw", out_dir="../data/processed", num_poin
     """
     Preprocess all data with memory-efficient processing and save as PLY files
     """
-    os.makedirs(out_dir, exist_ok=True)
+    # Create separate directories for PLY files and labels
+    ply_dir = os.path.join(out_dir, "ply_dir")
+    label_dir = os.path.join(out_dir, "label_dir")
+    os.makedirs(ply_dir, exist_ok=True)
+    os.makedirs(label_dir, exist_ok=True)
+    
     f, cx, cy = load_intrinsics()
 
     depth_files = sorted(glob.glob(os.path.join(data_dir, "depth_*.npy")))
@@ -92,15 +97,15 @@ def preprocess_all(data_dir="../data/raw", out_dir="../data/processed", num_poin
                 rgb_flat = rgb_flat[indices]
             pcd.colors = o3d.utility.Vector3dVector(rgb_flat / 255.0)
 
-        # Save as PLY file
-        out_file = os.path.join(out_dir, f"cloud_{base}.ply")
+        # Save as PLY file in ply_dir
+        out_file = os.path.join(ply_dir, f"cloud_{base}.ply")
         o3d.io.write_point_cloud(out_file, pcd, write_ascii=True)
         
-        # Save labels separately
-        label_file = os.path.join(out_dir, f"labels_{base}.npy")
+        # Save labels in label_dir
+        label_file = os.path.join(label_dir, f"labels_{base}.npy")
         np.save(label_file, labels)
 
-    print(f"✅ Done preprocessing. Saved point clouds in {out_dir}")
+    print(f"✅ Done preprocessing. Saved point clouds in {ply_dir} and labels in {label_dir}")
 
 
 class PointCloudDataset(Dataset):
@@ -113,17 +118,33 @@ class PointCloudDataset(Dataset):
         self.partition = partition
         self.transform = transform
         
-        # Store file paths instead of loading all data
-        self.ply_files = sorted(glob.glob(os.path.join(root_dir, 'cloud_*.ply')))
-        self.label_files = sorted(glob.glob(os.path.join(root_dir, 'labels_*.npy')))
+        # Get paths for ply_dir and label_dir
+        self.ply_dir = os.path.join(root_dir, 'ply_dir')
+        self.label_dir = os.path.join(root_dir, 'label_dir')
+        
+        # Verify directories exist
+        if not os.path.exists(self.ply_dir) or not os.path.exists(self.label_dir):
+            raise ValueError(f"Required directories not found: {self.ply_dir} or {self.label_dir}")
+        
+        # Get all files and ensure they match
+        self.ply_files = sorted(glob.glob(os.path.join(self.ply_dir, 'cloud_*.ply')))
+        self.label_files = sorted(glob.glob(os.path.join(self.label_dir, 'labels_*.npy')))
+        
+        # Verify matching files
+        ply_bases = {os.path.basename(f).split('_')[1].split('.')[0] for f in self.ply_files}
+        label_bases = {os.path.basename(f).split('_')[1].split('.')[0] for f in self.label_files}
+        
+        if ply_bases != label_bases:
+            raise ValueError("Mismatch between PLY and label files")
         
         # Split into train/test
+        split_idx = int(0.8 * len(self.ply_files))
         if partition == 'train':
-            self.ply_files = self.ply_files[:int(0.8 * len(self.ply_files))]
-            self.label_files = self.label_files[:int(0.8 * len(self.label_files))]
-        else:
-            self.ply_files = self.ply_files[int(0.8 * len(self.ply_files)):]
-            self.label_files = self.label_files[int(0.8 * len(self.label_files)):]
+            self.ply_files = self.ply_files[:split_idx]
+            self.label_files = self.label_files[:split_idx]
+        else:  # test
+            self.ply_files = self.ply_files[split_idx:]
+            self.label_files = self.label_files[split_idx:]
     
     def _normalize_points(self, points):
         """Normalize point cloud to unit sphere"""
@@ -154,7 +175,7 @@ class PointCloudDataset(Dataset):
         points = self._normalize_points(points)
         points = self._random_sample(points)
         
-        # Convert to torch tensor - fix the slow conversion warning
+        # Convert to torch tensor
         points = torch.from_numpy(points).float()
         label = torch.from_numpy(np.array(label)).long()
         
@@ -239,9 +260,9 @@ class PointCloudTransform:
         
         return points
 
-def get_dataloaders(processed_dir, batch_size=16, num_points=1024):
+def get_dataloaders(processed_dir, batch_size=8, num_points=1024):
     """
-    Create CPU-friendly dataloaders
+    Create CPU-friendly dataloaders for the split directory structure
     """
     # Use fewer workers for CPU
     num_workers = min(4, cpu_count())
@@ -292,7 +313,7 @@ if __name__ == '__main__':
     # Get dataloaders with CPU-friendly settings
     train_loader, test_loader = get_dataloaders(
         processed_dir,
-        batch_size=16,  # Smaller batch size for CPU
+        batch_size=8,  # Smaller batch size for CPU
         num_points=1024
     )
     
