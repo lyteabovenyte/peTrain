@@ -13,9 +13,11 @@ import cv2
 from ai2thor.controller import Controller
 from tqdm import tqdm
 
-def generate_light_data(
-    base_dir="data/light_test",
-    scenes=["FloorPlan1", "FloorPlan2"],  # No _physics scenes!
+def generate_data(
+    base_dir="../data/raw",
+    scenes=["FloorPlan1", "FloorPlan2", "FloorPlan3", "FloorPlan4", "FloorPlan5", "FloorPlan6", "FloorPlan7", 
+            "FloorPlan8", "FloorPlan9", "FloorPlan10", "FloorPlan11", "FloorPlan12", "FloorPlan13", "FloorPlan14",
+            "FloorPlan15", "FloorPlan16", "FloorPlan17", "FloorPlan18", "FloorPlan19", "FloorPlan20", "FloorPlan21",],
     grid_size=0.5,
     rotate_step_degrees=90,
     max_steps_per_scene=15
@@ -86,4 +88,4 @@ def generate_light_data(
     print(f"✅ Done. {sample_count} samples saved in {base_dir}")
 
 if __name__ == "__main__":
-    generate_light_data()
+    generate_data()
