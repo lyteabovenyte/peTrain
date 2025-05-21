@@ -11,6 +11,7 @@
 
 
 ### Ref:
+- [Beyond the Nav-Graph: Vision-and-Language Navigation in Continuous Environments](https://arxiv.org/pdf/2004.02857) for VLN-CE
 - 
 
 

@@ -1,0 +1,38 @@
+{
+    "data_dir": "data/VLN-CE/R2R_VLNCE_v1-3_preprocessed",
+    "train_split": "train",
+    "val_split": "val_unseen",
+    "vocab_size": 1000,
+    "embed_dim": 300,
+    "lang_hidden": 512,
+    "visual_dim": 512,
+    "attn_hidden": 512,
+    "policy_hidden": 256,
+    "action_space": 6,
+    
+    "training": {
+        "lr": 1e-4,
+        "batch_size": 4,
+        "epochs": 10,
+        "gamma": 0.99,
+        "max_grad_norm": 0.5,
+        "entropy_coef": 0.01,
+        "value_coef": 0.5,
+        "max_episodes": 1000,
+        "save_interval": 100,
+        "max_steps": 100
+    },
+    
+    "optimization": {
+        "use_amp": false,
+        "num_workers": 2,
+        "pin_memory": false,
+        "prefetch_factor": 2
+    },
+    
+    "model": {
+        "use_depth": false,
+        "input_size": [224, 224],
+        "max_instruction_length": 80
+    }
+}
