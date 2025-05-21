@@ -11,3 +11,14 @@
 
 ### Ref:
 - 
+
+
+
+
+##### Usage:
+
+examply usage to train any architecture in `models` directory:
+
+```bash
+python3 script/train.py --conifg path/to/configs.json --model PointNetPP
+```
