@@ -1,0 +1,13 @@
+{
+    "data_dir": "../data/processed",
+    "output_dir": "../data/output/logs/PointNetPP",
+    "model_dir": "../data/models/basic-PoinetNet++",
+    "num_classes": 123,
+    "num_points": 1024,
+    "batch_size": 8,
+    "learning_rate": 0.0005,
+    "weight_decay": 1e-4,
+    "epochs": 5,
+    "pretrained": false,
+    "pretrained_path": null
+}
