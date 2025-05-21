@@ -6,6 +6,8 @@
 
 
 ### Future:
+- command-based navigation system using (Matterport3D)[https://niessner.github.io/Matterport/#download] for Voice and navigation
+in continuous indoor environments
 - generate physics-based data using [AI2THOR](https://ai2thor.allenai.org) and integrate physics-informed models
 
 
