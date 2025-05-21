@@ -52,60 +52,96 @@ def preprocess_all(data_dir="../data/raw", out_dir="../data/processed", num_poin
     
     f, cx, cy = load_intrinsics()
 
+    # Get all depth files and validate corresponding files exist
     depth_files = sorted(glob.glob(os.path.join(data_dir, "depth_*.npy")))
+    valid_files = []
     
-    for i, depth_path in enumerate(tqdm(depth_files)):
+    print("Validating data files...")
+    for depth_path in tqdm(depth_files, desc="Checking files"):
         base = os.path.basename(depth_path).split(".")[0].split("_")[1]
         rgb_path = os.path.join(data_dir, f"rgb_{base}.png")
         inst_path = os.path.join(data_dir, f"instance_{base}.png")
-
-        # Load and process depth
-        depth = np.load(depth_path)
-        instance = cv2.imread(inst_path)[:, :, ::-1]  # BGR to RGB
-
-        # Process in chunks to save memory
-        chunk_size = 1000000  # Process 1M points at a time
-        points = depth_to_point_cloud(depth, f, cx, cy)
-        labels = instance_to_labels(instance)
-
-        # Filter invalid points
-        valid = (depth.reshape(-1) > 0.1) & (depth.reshape(-1) < 5.0)
-        points = points[valid]
-        labels = labels[valid]
-
-        # Normalize points
-        centroid = np.mean(points, axis=0)
-        points = points - centroid
-        m = np.max(np.sqrt(np.sum(points**2, axis=1)))
-        points = points / m
-
-        # Sample points if needed
-        if len(points) > num_points:
-            indices = np.random.choice(len(points), num_points, replace=False)
-            points = points[indices]
-            labels = labels[indices]
-
-        # Create Open3D point cloud
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
         
-        # Add colors from RGB image if available
-        if os.path.exists(rgb_path):
+        # Check if all required files exist
+        if not os.path.exists(rgb_path):
+            print(f"Warning: Missing RGB file for {base}")
+            continue
+        if not os.path.exists(inst_path):
+            print(f"Warning: Missing instance file for {base}")
+            continue
+            
+        # Check if depth file is valid
+        try:
+            depth = np.load(depth_path)
+            if depth.size == 0 or np.isnan(depth).any():
+                print(f"Warning: Invalid depth file for {base}")
+                continue
+        except Exception as e:
+            print(f"Warning: Error loading depth file for {base}: {str(e)}")
+            continue
+            
+        valid_files.append((depth_path, rgb_path, inst_path, base))
+    
+    print(f"Found {len(valid_files)} valid data points out of {len(depth_files)} total files")
+    
+    # Process only valid files
+    for depth_path, rgb_path, inst_path, base in tqdm(valid_files, desc="Processing point clouds"):
+        try:
+            # Load and process depth
+            depth = np.load(depth_path)
+            instance = cv2.imread(inst_path)[:, :, ::-1]  # BGR to RGB
             rgb = cv2.imread(rgb_path)[:, :, ::-1]  # BGR to RGB
+
+            # Verify image dimensions match
+            if depth.shape[:2] != instance.shape[:2] or depth.shape[:2] != rgb.shape[:2]:
+                print(f"Warning: Dimension mismatch for {base}")
+                continue
+
+            # Process in chunks to save memory
+            points = depth_to_point_cloud(depth, f, cx, cy)
+            labels = instance_to_labels(instance)
+
+            # Filter invalid points
+            valid = (depth.reshape(-1) > 0.1) & (depth.reshape(-1) < 5.0)
+            points = points[valid]
+            labels = labels[valid]
+
+            # Normalize points
+            centroid = np.mean(points, axis=0)
+            points = points - centroid
+            m = np.max(np.sqrt(np.sum(points**2, axis=1)))
+            points = points / m
+
+            # Sample points if needed
+            if len(points) > num_points:
+                indices = np.random.choice(len(points), num_points, replace=False)
+                points = points[indices]
+                labels = labels[indices]
+
+            # Create Open3D point cloud
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            
+            # Add colors from RGB image
             rgb_flat = rgb.reshape(-1, 3)[valid]
             if len(points) > num_points:
                 rgb_flat = rgb_flat[indices]
             pcd.colors = o3d.utility.Vector3dVector(rgb_flat / 255.0)
 
-        # Save as PLY file in ply_dir
-        out_file = os.path.join(ply_dir, f"cloud_{base}.ply")
-        o3d.io.write_point_cloud(out_file, pcd, write_ascii=True)
-        
-        # Save labels in label_dir
-        label_file = os.path.join(label_dir, f"labels_{base}.npy")
-        np.save(label_file, labels)
+            # Save as PLY file in ply_dir
+            out_file = os.path.join(ply_dir, f"cloud_{base}.ply")
+            o3d.io.write_point_cloud(out_file, pcd, write_ascii=True)
+            
+            # Save labels in label_dir
+            label_file = os.path.join(label_dir, f"labels_{base}.npy")
+            np.save(label_file, labels)
+            
+        except Exception as e:
+            print(f"Error processing {base}: {str(e)}")
+            continue
 
     print(f"✅ Done preprocessing. Saved point clouds in {ply_dir} and labels in {label_dir}")
+    print(f"Successfully processed {len(valid_files)} point clouds")
 
 
 class PointCloudDataset(Dataset):
@@ -265,7 +301,7 @@ def get_dataloaders(processed_dir, batch_size=8, num_points=1024):
     Create CPU-friendly dataloaders for the split directory structure
     """
     # Use fewer workers for CPU
-    num_workers = min(4, cpu_count())
+    num_workers = min(2, cpu_count())  # Reduced workers for CPU
     
     # Create datasets
     train_dataset = PointCloudDataset(
@@ -289,7 +325,8 @@ def get_dataloaders(processed_dir, batch_size=8, num_points=1024):
         shuffle=True,
         num_workers=num_workers,
         pin_memory=False,  # Disable pin_memory for CPU
-        persistent_workers=True if num_workers > 0 else False
+        persistent_workers=True if num_workers > 0 else False,
+        drop_last=True  # Ensure consistent batch size
     )
     
     test_loader = DataLoader(
@@ -298,7 +335,8 @@ def get_dataloaders(processed_dir, batch_size=8, num_points=1024):
         shuffle=False,
         num_workers=num_workers,
         pin_memory=False,  # Disable pin_memory for CPU
-        persistent_workers=True if num_workers > 0 else False
+        persistent_workers=True if num_workers > 0 else False,
+        drop_last=True  # Ensure consistent batch size
     )
     
     return train_loader, test_loader
@@ -313,7 +351,7 @@ if __name__ == '__main__':
     # Get dataloaders with CPU-friendly settings
     train_loader, test_loader = get_dataloaders(
         processed_dir,
-        batch_size=8,  # Smaller batch size for CPU
+        batch_size=8,  # Fixed batch size for CPU
         num_points=1024
     )
     

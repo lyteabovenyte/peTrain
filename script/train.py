@@ -17,23 +17,25 @@ from datetime import datetime
 import sys
 from pathlib import Path
 import multiprocessing
+import argparse
+import importlib.util
 
 # Add the project root to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from script.preprocessing import get_dataloaders
-from models.pointnetpp import PointNetPP
+from script.preprocessing import PointCloudDataset, PointCloudTransform, get_dataloaders
 
 class Trainer:
     def __init__(self, config):
         self.config = config
         self.device = torch.device('cpu')  # Force CPU usage
-        self.setup_logging()
-        self.setup_directories()
         
         # Set number of workers based on CPU cores
-        self.num_workers = min(4, multiprocessing.cpu_count())
+        self.num_workers = min(2, multiprocessing.cpu_count())  # Reduced for CPU
         torch.set_num_threads(self.num_workers)  # Limit PyTorch threads
+        
+        self.setup_logging()
+        self.setup_directories()
         
     def setup_logging(self):
         """Setup logging configuration"""
@@ -59,19 +61,55 @@ class Trainer:
         os.makedirs(self.config['output_dir'], exist_ok=True)
         os.makedirs(self.config['model_dir'], exist_ok=True)
         
+    def load_model_module(self, model_name):
+        """Dynamically load a model module from the models directory"""
+        models_dir = Path(__file__).parent.parent / 'models'
+        model_path = models_dir / f"{model_name}.py"
+        
+        if not model_path.exists():
+            raise ImportError(f"Model file not found: {model_path}")
+            
+        try:
+            # Load the module dynamically
+            spec = importlib.util.spec_from_file_location(model_name, model_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+        except Exception as e:
+            raise ImportError(f"Failed to load model {model_name}: {str(e)}")
+        
     def setup_model(self):
         """Initialize model based on config"""
-        model = PointNetPP(
-            num_classes=self.config['num_classes'],
-            num_points=self.config['num_points']
-        ).to(self.device)
-        
-        #! pretrained models and tune config file
-        if self.config['pretrained'] and os.path.exists(self.config['pretrained_path']):
-            self.logger.info(f"Loading pretrained weights from {self.config['pretrained_path']}")
-            model.load_state_dict(torch.load(self.config['pretrained_path'], map_location='cpu'))
+        try:
+            # Get model name from config, default to PointNetPP if not specified
+            model_name = self.config.get('model_name', 'PointNetPP')
+            self.logger.info(f"Loading model: {model_name}")
             
-        return model
+            # Load the model module
+            model_module = self.load_model_module(model_name)
+            
+            # Get the model class (assuming it has the same name as the file)
+            model_class = getattr(model_module, model_name)
+            
+            # Initialize the model with config parameters
+            model = model_class(
+                num_classes=self.config['num_classes'],
+                num_points=self.config['num_points']
+            ).to(self.device)
+            
+            if self.config.get('pretrained', False) and self.config.get('pretrained_path'):
+                pretrained_path = self.config['pretrained_path']
+                if os.path.exists(pretrained_path):
+                    self.logger.info(f"Loading pretrained weights from {pretrained_path}")
+                    model.load_state_dict(torch.load(pretrained_path, map_location='cpu'))
+                else:
+                    self.logger.warning(f"Pretrained weights not found at {pretrained_path}")
+            
+            return model
+            
+        except Exception as e:
+            self.logger.error(f"Failed to setup model: {str(e)}")
+            raise
     
     def setup_optimizer(self, model):
         """Setup optimizer and learning rate scheduler"""
@@ -99,33 +137,44 @@ class Trainer:
         total = 0
         
         pbar = tqdm(train_loader, desc='Training')
-        for points, labels in pbar:
+        for batch_idx, (points, labels) in enumerate(pbar):
             # Move data to CPU and ensure contiguous memory
             points = points.contiguous()
             labels = labels.contiguous()
             
+            # Get the most common label in each point cloud as the batch label
+            batch_labels = torch.mode(labels, dim=1)[0]  # [B]
+            
             optimizer.zero_grad()
-            outputs = model(points)
-            loss = criterion(outputs, labels)
+            outputs = model(points)  # [B, num_classes]
+            loss = criterion(outputs, batch_labels)
             
             loss.backward()
             optimizer.step()
             
             total_loss += loss.item()
             _, predicted = outputs.max(1)
-            total += labels.size(0)
-            correct += predicted.eq(labels).sum().item()
+            total += batch_labels.size(0)
+            correct += predicted.eq(batch_labels).sum().item()
             
             # Clear memory
-            # del outputs, loss
-            # torch.cuda.empty_cache() if torch.cuda.is_available() else None
+            del outputs, loss
+            torch.cuda.empty_cache() if torch.cuda.is_available() else None
+            
+            # Calculate running averages
+            avg_loss = total_loss / (batch_idx + 1)
+            avg_acc = 100. * correct / total if total > 0 else 0
             
             pbar.set_postfix({
-                'loss': f'{total_loss/pbar.n:.4f}',
-                'acc': f'{100.*correct/total:.2f}%'
+                'loss': f'{avg_loss:.4f}',
+                'acc': f'{avg_acc:.2f}%'
             })
             
-        return total_loss / len(train_loader), 100. * correct / total
+        # Calculate final averages
+        avg_loss = total_loss / len(train_loader) if len(train_loader) > 0 else 0
+        avg_acc = 100. * correct / total if total > 0 else 0
+        
+        return avg_loss, avg_acc
     
     def validate(self, model, val_loader, criterion):
         """Validate the model"""
@@ -135,24 +184,31 @@ class Trainer:
         total = 0
         
         with torch.no_grad():
-            for points, labels in tqdm(val_loader, desc='Validation'):
+            for batch_idx, (points, labels) in enumerate(val_loader):
                 # Move data to CPU and ensure contiguous memory
                 points = points.contiguous()
                 labels = labels.contiguous()
                 
-                outputs = model(points)
-                loss = criterion(outputs, labels)
+                # Get the most common label in each point cloud as the batch label
+                batch_labels = torch.mode(labels, dim=1)[0]  # [B]
+                
+                outputs = model(points)  # [B, num_classes]
+                loss = criterion(outputs, batch_labels)
                 
                 total_loss += loss.item()
                 _, predicted = outputs.max(1)
-                total += labels.size(0)
-                correct += predicted.eq(labels).sum().item()
+                total += batch_labels.size(0)
+                correct += predicted.eq(batch_labels).sum().item()
                 
                 # Clear memory
                 del outputs, loss
                 torch.cuda.empty_cache() if torch.cuda.is_available() else None
                 
-        return total_loss / len(val_loader), 100. * correct / total
+        # Calculate final averages
+        avg_loss = total_loss / len(val_loader) if len(val_loader) > 0 else 0
+        avg_acc = 100. * correct / total if total > 0 else 0
+                
+        return avg_loss, avg_acc
     
     def save_checkpoint(self, model, optimizer, epoch, metrics):
         """Save model checkpoint"""
@@ -228,28 +284,41 @@ class Trainer:
                 torch.save(model.state_dict(), best_model_path, _use_new_zipfile_serialization=False)
                 self.logger.info(f"New best model saved with accuracy: {val_acc:.2f}%")
 
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(description='Training🏇...')
+    parser.add_argument('--config', type=str, default='configs/PointNetPP.json',
+                      help='Path to config file (relative to project root)')
+    parser.add_argument('--model', type=str,
+                      help='Model name to use (overrides config file setting)')
+    return parser.parse_args()
+
 def main():
-    # Default configuration optimized for CPU
-    config = {
-        'data_dir': '../data/processed',
-        'output_dir': '../data/output',
-        'model_dir': '../data/models',
-        'num_classes': 10,  # Update based on your dataset
-        'num_points': 1024,
-        'batch_size': 8,  # Reduced batch size for CPU
-        'learning_rate': 0.0005,  # Slightly reduced learning rate
-        'weight_decay': 1e-4,
-        'epochs': 100,
-        'pretrained': False,
-        'pretrained_path': None
-    }
+    # Parse command line arguments
+    args = parse_args()
     
-    # Load custom config if exists
-    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+    # Initialize empty config
+    config = {}
+    
+    # Load config from specified path
+    config_path = os.path.join(str(Path(__file__).parent.parent), args.config)
     if os.path.exists(config_path):
-        with open(config_path, 'r') as f:
-            custom_config = json.load(f)
-            config.update(custom_config)
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            print(f"Successfully loaded configuration from {config_path}")
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON format in {config_path}")
+            print(f"Error details: {str(e)}")
+            sys.exit(1)
+    else:
+        print(f"Error: Config file not found at {config_path}")
+        sys.exit(1)
+    
+    # Override model name if specified in command line
+    if args.model:
+        config['model_name'] = args.model
+        print(f"Using model: {args.model} (overridden from command line)")
     
     # Initialize and start training
     trainer = Trainer(config)
