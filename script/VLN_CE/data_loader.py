@@ -120,8 +120,9 @@ class VLNCEDataLoader(Dataset):
             end_pos = torch.tensor([path[-1]['heading'], path[-1]['elevation']], dtype=torch.float32)
             
             # For now, return dummy images since we don't have actual image data
-            rgb = torch.zeros(3, *self.image_size)
-            depth = torch.zeros(1, *self.image_size)
+            # Ensure CHW format for PyTorch
+            rgb = torch.zeros(3, *self.image_size)  # [3, H, W]
+            depth = torch.zeros(1, *self.image_size)  # [1, H, W]
             
             # Get ground-truth actions if available
             actions = torch.tensor(self.gt_actions.get(ep['episode_id'], []), dtype=torch.long)

@@ -94,14 +94,13 @@ class A2CTrainer:
             dones = []
             
             while not done:
-                # Preprocess observations
-                rgb = torch.from_numpy(obs['rgb']).float().unsqueeze(0)
-                depth = torch.from_numpy(obs['depth']).float().unsqueeze(0)
+                # Preprocess observations and ensure they require gradients
+                rgb = torch.from_numpy(obs['rgb']).float().unsqueeze(0).requires_grad_(True)
+                depth = torch.from_numpy(obs['depth']).float().unsqueeze(0).requires_grad_(True)
                 instr = torch.LongTensor(obs['instr_tokens']).unsqueeze(0)
                 
-                # Forward pass (no gradient computation yet)
-                with torch.no_grad():
-                    logits, value = self.agent(rgb, depth, instr)
+                # Forward pass
+                logits, value = self.agent(rgb, depth, instr)
                 
                 # Sample action
                 probs = F.softmax(logits, dim=-1)
@@ -134,9 +133,9 @@ class A2CTrainer:
             # Normalize advantages
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
             
-            # Convert to tensors
-            log_probs = torch.cat(log_probs)
-            values = torch.cat(values)
+            # Convert to tensors and ensure they require gradients
+            log_probs = torch.cat(log_probs).requires_grad_(True)
+            values = torch.cat(values).requires_grad_(True)
             
             # Compute losses
             policy_loss = -(log_probs * advantages).mean()

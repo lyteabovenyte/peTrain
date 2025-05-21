@@ -303,3 +303,15 @@ pip-selfcheck.json
 plan
 data
 .DS_Store
+checkpoints/
+checkpoints
+*.pth
+*.pt
+*.pth.tar
+*.pth.tar.gz
+*.pth.tar.bz2
+*.pth.tar.xz
+*.pth.tar.lzma
+
+# Model checkpoints
+checkpoints/

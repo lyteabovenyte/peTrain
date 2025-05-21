@@ -16,6 +16,10 @@ class VLNCEAgent(nn.Module):
         self.vis_enc = VisualEncoder(pretrained=False, use_depth=False)
         self.attn = CrossModalAttention(visual_dim, lang_hidden, attn_hidden)
         self.policy = VLNPolicy(attn_hidden, policy_hidden, action_space)
+        
+        # Ensure all parameters require gradients
+        for param in self.parameters():
+            param.requires_grad = True
     
     def forward(self, rgb, depth, instr_tokens):
         """

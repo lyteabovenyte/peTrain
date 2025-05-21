@@ -55,7 +55,7 @@ class VLNCEEnv(gym.Env):
         self.steps = 0
         
         # Generate dummy instruction tokens (replace with actual instruction processing)
-        self.instruction_tokens = np.zeros(config['model']['max_instruction_length'], dtype=np.int64)
+        self.instruction_tokens = np.zeros(self.config['model']['max_instruction_length'], dtype=np.int64)
         
         # Generate initial observation
         obs = self._get_observation()
@@ -108,8 +108,8 @@ class VLNCEEnv(gym.Env):
     def _get_observation(self):
         """Generate current observation."""
         # Generate dummy RGB and depth images (replace with actual rendering)
-        rgb = np.zeros((224, 224, 3), dtype=np.uint8)
-        depth = np.zeros((224, 224, 1), dtype=np.float32)
+        rgb = np.zeros((3, 224, 224), dtype=np.uint8)
+        depth = np.zeros((1, 224, 224), dtype=np.float32)
         
         return {
             'rgb': rgb,
