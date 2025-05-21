@@ -4,35 +4,36 @@
     "val_split": "val_unseen",
     "vocab_size": 1000,
     "embed_dim": 300,
-    "lang_hidden": 512,
-    "visual_dim": 512,
-    "attn_hidden": 512,
-    "policy_hidden": 256,
+    "lang_hidden": 256,
+    "visual_dim": 256,
+    "attn_hidden": 256,
+    "policy_hidden": 128,
     "action_space": 6,
     
     "training": {
         "lr": 1e-4,
-        "batch_size": 4,
+        "batch_size": 1,
         "epochs": 10,
         "gamma": 0.99,
         "max_grad_norm": 0.5,
         "entropy_coef": 0.01,
         "value_coef": 0.5,
-        "max_episodes": 1000,
+        "max_episodes": 20,
         "save_interval": 100,
-        "max_steps": 100
+        "max_steps": 50,
+        "num_workers": 0,
+        "checkpoint_interval": 5
     },
     
     "optimization": {
         "use_amp": false,
-        "num_workers": 2,
         "pin_memory": false,
         "prefetch_factor": 2
     },
     
     "model": {
         "use_depth": false,
-        "input_size": [224, 224],
+        "input_size": [128, 128],
         "max_instruction_length": 80
     }
 }

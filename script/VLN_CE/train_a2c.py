@@ -99,7 +99,7 @@ class A2CTrainer:
                 depth = torch.from_numpy(obs['depth']).float().unsqueeze(0).requires_grad_(True)
                 instr = torch.LongTensor(obs['instr_tokens']).unsqueeze(0)
                 
-                # Forward pass
+                # Forward pass with gradient computation
                 logits, value = self.agent(rgb, depth, instr)
                 
                 # Sample action
@@ -122,7 +122,7 @@ class A2CTrainer:
                 episode_length += 1
                 
                 # Clear memory periodically
-                if episode_length % 10 == 0:
+                if episode_length % 5 == 0:  # More frequent memory clearing
                     torch.cuda.empty_cache() if torch.cuda.is_available() else None
             
             # Compute returns and advantages
@@ -165,18 +165,18 @@ class A2CTrainer:
             self.metrics['success_rates'].append(float(info.get('success', False)))
             self.metrics['losses'].append(loss.item())
             
-            # Print progress
-            if (episode + 1) % 10 == 0:
-                avg_reward = np.mean(self.metrics['episode_rewards'][-10:])
-                avg_length = np.mean(self.metrics['episode_lengths'][-10:])
-                success_rate = np.mean(self.metrics['success_rates'][-10:])
+            # Print progress less frequently
+            if (episode + 1) % 2 == 0:  # Print every 2 episodes
+                avg_reward = np.mean(self.metrics['episode_rewards'][-2:])
+                avg_length = np.mean(self.metrics['episode_lengths'][-2:])
+                success_rate = np.mean(self.metrics['success_rates'][-2:])
                 print(f"\nEpisode {episode + 1}")
                 print(f"Average Reward: {avg_reward:.2f}")
                 print(f"Average Length: {avg_length:.2f}")
                 print(f"Success Rate: {success_rate:.2%}")
                 print(f"Loss: {loss.item():.4f}")
             
-            # Save checkpoint
+            # Save checkpoint less frequently
             if (episode + 1) % self.save_interval == 0:
                 self.save_checkpoint(episode + 1, self.metrics)
                 

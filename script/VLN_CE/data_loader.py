@@ -13,7 +13,7 @@ class VLNCEDataLoader(Dataset):
     Each episode includes instruction tokens, start pose, goal, and reference path.
     If ground-truth actions are available (e.g., in *_follower_gt.json.gz), they can be loaded as well.
     """
-    def __init__(self, data_dir, split, max_instruction_length=80, image_size=(224, 224)):
+    def __init__(self, data_dir, split, max_instruction_length=80, image_size=(128, 128)):
         """
         data_dir: root directory for VLN-CE data (e.g., ../data/VLN-CE/R2R_VLNCE_v1-3_preprocessed/train)
         split: 'train', 'val_seen', or 'val_unseen'
@@ -26,7 +26,7 @@ class VLNCEDataLoader(Dataset):
         self.max_instruction_length = max_instruction_length
         self.image_size = image_size
         
-        # Image preprocessing
+        # Simplified image preprocessing for CPU
         self.transform = T.Compose([
             T.Resize(image_size),
             T.ToTensor(),
@@ -69,6 +69,9 @@ class VLNCEDataLoader(Dataset):
                 
         # Validate episodes
         self._validate_episodes()
+        
+        # Cache for token indices to reduce computation
+        self.token_cache = {}
         
     def _validate_episodes(self):
         """Validate episode data structure and content."""

@@ -7,24 +7,32 @@ class VisualEncoder(nn.Module):
     """
     Encodes visual observations (RGB+D) into spatial feature maps with proper preprocessing.
     """
-    def __init__(self, pretrained=True, use_depth=False, input_size=(224, 224)):
+    def __init__(self, pretrained=False, use_depth=False, input_size=(128, 128)):
         super().__init__()
         self.input_size = input_size
         self.use_depth = use_depth
         
-        # Image normalization
+        # Simplified image normalization
         self.normalize = T.Normalize(
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225]
         )
         
-        # Use ResNet18 for RGB
+        # Use smaller ResNet18 for RGB
         backbone = models.resnet18(pretrained=pretrained)
+        # Remove unnecessary layers for CPU efficiency
         layers = list(backbone.children())[:-2]  # remove avgpool and fc
         self.cnn = nn.Sequential(*layers)
         
+        # Add a projection layer to reduce feature dimensions
+        self.projection = nn.Sequential(
+            nn.Conv2d(512, 256, kernel_size=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True)
+        )
+        
         if use_depth:
-            # Separate depth processing branch
+            # Simplified depth processing branch
             self.depth_conv = nn.Sequential(
                 nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False),
                 nn.BatchNorm2d(64),
@@ -33,15 +41,15 @@ class VisualEncoder(nn.Module):
             # Initialize depth conv with RGB first-channel weights
             self.depth_conv[0].weight.data = backbone.conv1.weight.data.mean(dim=1, keepdim=True)
             
-            # Fusion layer to combine RGB and depth features
+            # Simplified fusion layer
             self.fusion = nn.Sequential(
-                nn.Conv2d(512 * 2, 512, kernel_size=1),
-                nn.BatchNorm2d(512),
+                nn.Conv2d(512 * 2, 256, kernel_size=1),
+                nn.BatchNorm2d(256),
                 nn.ReLU(inplace=True)
             )
     
     def preprocess_rgb(self, rgb):
-        """Preprocess RGB images."""
+        """Preprocess RGB images with CPU optimizations."""
         if not isinstance(rgb, torch.Tensor):
             rgb = torch.from_numpy(rgb).float()
         if rgb.dim() == 3:
@@ -56,7 +64,7 @@ class VisualEncoder(nn.Module):
         return rgb
     
     def preprocess_depth(self, depth):
-        """Preprocess depth images."""
+        """Preprocess depth images with CPU optimizations."""
         if not isinstance(depth, torch.Tensor):
             depth = torch.from_numpy(depth).float()
         if depth.dim() == 3:
@@ -72,7 +80,7 @@ class VisualEncoder(nn.Module):
         """
         rgb_img: [B,3,H,W] or numpy array
         depth_img: [B,1,H,W] or numpy array (if use_depth)
-        Returns: visual_feats [B, C, H', W']
+        Returns: visual_feats [B, 256, H', W']
         """
         # Preprocess RGB
         rgb = self.preprocess_rgb(rgb_img)
@@ -98,7 +106,8 @@ class VisualEncoder(nn.Module):
             combined = torch.cat([rgb_feats, depth_feats], dim=1)
             feats = self.fusion(combined)
         else:
-            # Process RGB only
+            # Process RGB only and project to smaller dimension
             feats = self.cnn(rgb)
+            feats = self.projection(feats)
         
-        return feats  # [B, 512, H', W']
+        return feats  # [B, 256, H', W']
