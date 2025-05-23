@@ -22,3 +22,4 @@ torchvision
 huggingface-hub
 # perfect
 pillow
+timm

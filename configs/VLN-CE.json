@@ -12,8 +12,8 @@
     
     "training": {
         "lr": 1e-4,
-        "batch_size": 1,
-        "epochs": 10,
+        "batch_size": 32,
+        "epochs": 100,
         "gamma": 0.99,
         "max_grad_norm": 0.5,
         "entropy_coef": 0.01,
@@ -32,8 +32,27 @@
     },
     
     "model": {
-        "use_depth": false,
-        "input_size": [128, 128],
-        "max_instruction_length": 80
-    }
+        "lang_encoder": {
+            "type": "transformer",
+            "model_name": "distilbert-base-uncased",
+            "hidden_dim": 256
+        },
+        "visual_encoder": {
+            "type": "mobilenet",  // or "resnet" for slightly better accuracy
+            "pretrained": true
+        },
+        "cross_modal": {
+            "visual_dim": 256,
+            "lang_dim": 256,
+            "hidden_dim": 256,
+            "num_heads": 4,
+            "num_layers": 2,
+            "dropout": 0.1
+        },
+    },
+
+        "policy": {
+            "hidden_dim": 256,
+            "action_space": 6
+        }
 }

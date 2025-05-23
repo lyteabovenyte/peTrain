@@ -8,7 +8,8 @@
 - [x] command-based navigation system using (Matterport3D)[https://niessner.github.io/Matterport/#download] for Vision-and-Language Navigation in Continuous Environments(VLN-CE)
 
 - Improvement specific to VLN-CE:
-    - [ ] 
+    - [x] Replace simple cross-attention with **cross-modal transformers** like those in ViLBERT
+    
 
 
 ### Future:
@@ -24,7 +25,6 @@
     - [ ] integrate [VLN-PETL: Parameter-Efficient Transfer Learning for Vision-and-Language Navigation](https://arxiv.org/pdf/2308.10172) for reducing computational costs
     - [ ] Use BERT, RoBERTa, or DistilBERT for language understanding.
     - [ ] Use ViT or CLIP-ViT for visual encoding to better capture object-level semantics.
-    - [ ] Replace simple cross-attention with **cross-modal transformers** like those in ViLBERT, LXMERT, or CLIP-RN50x64.
     - [ ]
 
 
@@ -37,7 +37,7 @@
 - [Habitat-Lab](https://github.com/facebookresearch/habitat-lab) for indoor data generation
 
 
-### Tracking Loss of VLN-CE after each improvement for just 30 episodes:
+### Tracking VLN-CE loss after each improvement for just 30 episodes:
 - changing simple CorssModalAttention to ViLBERT and CrossModalTransformer dropped loss from 1.98 to 1.62
 - 
 
