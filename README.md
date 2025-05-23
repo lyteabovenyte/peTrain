@@ -39,7 +39,8 @@
 
 
 ### Tracking VLN-CE loss after each improvement for just 30 episodes:
-- changing simple CorssModalAttention to ViLBERT and CrossModalTransformer dropped loss from 1.98 to 1.62
+- changing simple CorssModalAttention to ViLBERT and CrossModalTransformer improved the generalization by $18.1%$
+- improving **memory management**, optimization strategy and tuning learning rate and initialization plus using pre-trained encoders like **DistilBERT**, **ViT encoder** and **MobileNet** lang-encoder dropped loss by $98%$ and lead to performance prior to last stage in contrast with being more computationally expensive. memory management is more efficient and also leads to overfit. data augmentation is needed for better data and it's gonna be the next stage to tune dataset for more diverse set of instructions and pathways.
 - 
 
 

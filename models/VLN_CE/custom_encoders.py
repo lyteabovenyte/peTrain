@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from .encoders import BaseLanguageEncoder, BaseVisualEncoder, EncoderRegistry
+import torchvision
 
 @EncoderRegistry.register_language_encoder('gpt2')
 class GPT2Encoder(BaseLanguageEncoder):
@@ -56,8 +57,9 @@ class MobileNetEncoder(BaseVisualEncoder):
     """Lightweight MobileNet-based visual encoder."""
     def __init__(self, pretrained: bool = True, **kwargs):
         super().__init__()
-        # Use MobileNetV2 which is more efficient
-        self.model = torch.hub.load('pytorch/vision:v0.10.0', 'mobilenet_v2', pretrained=pretrained)
+        # Use MobileNetV2 with new weights parameter
+        weights = torchvision.models.MobileNet_V2_Weights.IMAGENET1K_V1 if pretrained else None
+        self.model = torch.hub.load('pytorch/vision:v0.10.0', 'mobilenet_v2', weights=weights)
         # Remove classifier
         self.model = nn.Sequential(*list(self.model.children())[:-1])
         # Add projection to reduce feature dimensions

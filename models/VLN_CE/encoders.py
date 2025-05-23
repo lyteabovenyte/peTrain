@@ -141,6 +141,10 @@ class TransformerEncoder(BaseLanguageEncoder):
         self.hidden_dim = hidden_dim or 256  # Default to 256 if not specified
         self.projection = nn.Linear(self.model.config.hidden_size, self.hidden_dim)
         
+        # Initialize projection layer
+        nn.init.xavier_uniform_(self.projection.weight)
+        nn.init.zeros_(self.projection.bias)
+        
         self.config = {
             'model_name': model_name,
             'hidden_dim': self.hidden_dim,
@@ -148,11 +152,15 @@ class TransformerEncoder(BaseLanguageEncoder):
         }
     
     def forward(self, tokens):
-        with torch.no_grad():  # Disable gradient computation for transformer
-            outputs = self.model(tokens)
+        # Create attention mask for padded sequences
+        attention_mask = (tokens != 0).long()
+        
+        # Forward pass with attention mask
+        outputs = self.model(tokens, attention_mask=attention_mask)
+        
         # Project to expected dimension
         features = self.projection(outputs.last_hidden_state)
-        return features  # Return only the features, not the tuple
+        return features
 
 @EncoderRegistry.register_visual_encoder('resnet')
 class ResNetEncoder(BaseVisualEncoder):
