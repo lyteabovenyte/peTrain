@@ -10,25 +10,21 @@
 - Improvement specific to VLN-CE:
     - [x] Using a custom environment for VLN-CE that implements the *Gymnasium* interface. This provides similar functionality to *Habitat* but with a simpler implementation.
     - [x] Replace simple cross-attention with **cross-modal transformers** like those in ViLBERT
+    - [x] Use ViT for visual encoding to better capture object-level semantics.
+    - [x] Use BERT, RoBERTa, or DistilBERT for language understanding. (DistilBERT is implemented but you can change config files based on your preferences
     
-
 
 ### Future:
 
 - [ ] generate physics-based data using [AI2THOR](https://ai2thor.allenai.org) and integrate physics-informed models
-- [ ] implementing VLN_CE model using [Habitat-Lab](https://github.com/facebookresearch/habitat-lab)
-- [ ] implement [PointNet++](https://github.com/fxia22/pointnet2) for 3D object detection and scene segmentation using [Habitat-Lab](https://github.com/facebookresearch/habitat-lab)
+- [ ] implementing VLN_CE model using [Habitat-Lab](https://github.com/facebookresearch/habitat-lab) instead of [Gymnasium](https://arxiv.org/abs/2407.17032)
 
 - Specific to VLN-CE:
 
     - [ ] integrate [Language-Aligned Waypoint (LAW) Supervision for Vision-and-Language Navigation in Continuous Environments](https://3dlg-hcvc.github.io/LAW-VLNCE/?utm_source=chatgpt.com) into VLN-CE model
     - [ ] integrate [EnvEdit: Environment Editing for Vision-and-Language Navigation](https://arxiv.org/pdf/2203.15685) into VLN-CE model for data augmentation
     - [ ] integrate [VLN-PETL: Parameter-Efficient Transfer Learning for Vision-and-Language Navigation](https://arxiv.org/pdf/2308.10172) for reducing computational costs
-    - [ ] Use BERT, RoBERTa, or DistilBERT for language understanding.
-    - [ ] Use ViT or CLIP-ViT for visual encoding to better capture object-level semantics.
-    - [ ]
-
-
+    
 
 ### Ref:
 - [PointNet++](https://github.com/fxia22/pointnet2) for 3D object detection and scene segmentation
