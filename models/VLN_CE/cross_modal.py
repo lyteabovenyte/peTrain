@@ -41,25 +41,25 @@ class MultiHeadAttention(nn.Module):
         return self.out(out)
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model, num_heads, dropout=0.1):
+    def __init__(self, hidden_dim, num_heads, dropout=0.1):
         super().__init__()
-        self.attention = MultiHeadAttention(d_model, num_heads, dropout)
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
+        self.attention = nn.MultiheadAttention(hidden_dim, num_heads, dropout=dropout)
+        self.norm1 = nn.LayerNorm(hidden_dim)
+        self.norm2 = nn.LayerNorm(hidden_dim)
         self.feed_forward = nn.Sequential(
-            nn.Linear(d_model, d_model * 4),
+            nn.Linear(hidden_dim, hidden_dim * 4),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(d_model * 4, d_model)
+            nn.Linear(hidden_dim * 4, hidden_dim)
         )
         self.dropout = nn.Dropout(dropout)
         
-    def forward(self, x, mask=None):
+    def forward(self, x):
         # Self-attention
-        attn_output = self.attention(x, x, x, mask)
+        attn_output, _ = self.attention(x, x, x)
         x = self.norm1(x + self.dropout(attn_output))
         
-        # Feed-forward
+        # Feed forward
         ff_output = self.feed_forward(x)
         x = self.norm2(x + self.dropout(ff_output))
         

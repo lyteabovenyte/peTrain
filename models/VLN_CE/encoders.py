@@ -122,8 +122,8 @@ class LSTMEncoder(BaseLanguageEncoder):
     
     def forward(self, tokens):
         emb = self.embedding(tokens)
-        features, (h, c) = self.lstm(emb)
-        return features, (h, c)
+        features, _ = self.lstm(emb)
+        return features  # Return only the features, not the tuple
 
 @EncoderRegistry.register_language_encoder('transformer')
 class TransformerEncoder(BaseLanguageEncoder):
@@ -136,7 +136,11 @@ class TransformerEncoder(BaseLanguageEncoder):
         config.num_hidden_layers = min(config.num_hidden_layers, 3)  # Reduce layers
         config.num_attention_heads = min(config.num_attention_heads, 4)  # Reduce heads
         self.model = AutoModel.from_pretrained(model_name, config=config)
-        self.hidden_dim = hidden_dim or self.model.config.hidden_size
+        
+        # Add projection layer to match expected dimensions
+        self.hidden_dim = hidden_dim or 256  # Default to 256 if not specified
+        self.projection = nn.Linear(self.model.config.hidden_size, self.hidden_dim)
+        
         self.config = {
             'model_name': model_name,
             'hidden_dim': self.hidden_dim,
@@ -146,7 +150,9 @@ class TransformerEncoder(BaseLanguageEncoder):
     def forward(self, tokens):
         with torch.no_grad():  # Disable gradient computation for transformer
             outputs = self.model(tokens)
-        return outputs.last_hidden_state, None
+        # Project to expected dimension
+        features = self.projection(outputs.last_hidden_state)
+        return features  # Return only the features, not the tuple
 
 @EncoderRegistry.register_visual_encoder('resnet')
 class ResNetEncoder(BaseVisualEncoder):

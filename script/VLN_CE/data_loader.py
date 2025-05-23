@@ -11,11 +11,11 @@ class VLNCEDataLoader(Dataset):
     """
     Loads VLN-CE episodes from a JSON.gz file with proper error handling and preprocessing.
     Each episode includes instruction tokens, start pose, goal, and reference path.
-    If ground-truth actions are available (e.g., in *_follower_gt.json.gz), they can be loaded as well.
+    If ground-truth actions are available, they can be loaded as well.
     """
     def __init__(self, data_dir, split, max_instruction_length=80, image_size=(128, 128)):
         """
-        data_dir: root directory for VLN-CE data (e.g., ../data/VLN-CE/R2R_VLNCE_v1-3_preprocessed/train)
+        data_dir: root directory for VLN-CE data (e.g., ../data/VLN-CE/R2R_VLNCE_v1-3_preprocessed/)
         split: 'train', 'val_seen', or 'val_unseen'
         max_instruction_length: maximum number of tokens in instructions
         image_size: target size for RGB images
@@ -37,9 +37,14 @@ class VLNCEDataLoader(Dataset):
         if not os.path.exists(data_dir):
             raise FileNotFoundError(f"Data directory not found: {data_dir}")
             
-        # Try both .json and .json.gz files
-        epi_file = os.path.join(data_dir, f"{split}.json")
-        epi_file_gz = os.path.join(data_dir, f"{split}.json.gz")
+        # Construct path to split directory
+        split_dir = os.path.join(data_dir, split)
+        if not os.path.exists(split_dir):
+            raise FileNotFoundError(f"Split directory not found: {split_dir}")
+            
+        # Try both .json and .json.gz files in the split directory
+        epi_file = os.path.join(split_dir, f"{split}.json")
+        epi_file_gz = os.path.join(split_dir, f"{split}.json.gz")
         
         # Load episodes with error handling
         try:
@@ -51,19 +56,47 @@ class VLNCEDataLoader(Dataset):
                     data = json.load(f)
             else:
                 raise FileNotFoundError(f"No data file found at {epi_file} or {epi_file_gz}")
-            self.episodes = data['episodes']
+            
+            # Handle different data formats
+            if isinstance(data, dict):
+                # If data is a dictionary, try to extract episodes
+                if 'episodes' in data:
+                    self.episodes = data['episodes']
+                elif 'data' in data:
+                    self.episodes = data['data']
+                else:
+                    # If no clear episodes field, convert dict to list
+                    self.episodes = [{'episode_id': k, **v} for k, v in data.items()]
+            elif isinstance(data, list):
+                self.episodes = data
+            else:
+                raise ValueError(f"Unexpected data format: {type(data)}")
+                
+            # Ensure episodes is a list of dictionaries
+            if not isinstance(self.episodes, list):
+                raise ValueError(f"Expected list of episodes, got {type(self.episodes)}")
+                
+            # Validate each episode is a dictionary
+            for i, ep in enumerate(self.episodes):
+                if not isinstance(ep, dict):
+                    raise ValueError(f"Episode at index {i} is not a dictionary")
+                
         except Exception as e:
             raise RuntimeError(f"Failed to load episodes: {str(e)}")
             
         # Load ground truth if available for imitation learning
         self.gt_actions = {}
-        gt_file = os.path.join(data_dir, f"{split}_follower_gt.json.gz")
+        gt_file = os.path.join(split_dir, f"{split}_gt.json.gz")
         if os.path.exists(gt_file):
             try:
                 with gzip.open(gt_file, 'rt') as f:
                     gt_data = json.load(f)
-                self.gt_actions = {e['episode_id']: e['actions'] 
-                                 for e in gt_data['episodes']}
+                if isinstance(gt_data, list):
+                    self.gt_actions = {str(e.get('episode_id', '')): e.get('actions', []) 
+                                     for e in gt_data if isinstance(e, dict)}
+                elif isinstance(gt_data, dict):
+                    self.gt_actions = {str(k): v.get('actions', []) 
+                                     for k, v in gt_data.items()}
             except Exception as e:
                 print(f"Warning: Failed to load ground truth from {gt_file}: {str(e)}")
                 
@@ -75,27 +108,41 @@ class VLNCEDataLoader(Dataset):
         
     def _validate_episodes(self):
         """Validate episode data structure and content."""
-        required_fields = ['episode_id', 'instruction', 'path', 'scan', 'start_viewpoint', 'end_viewpoint']
-        for ep in self.episodes:
+        required_fields = [
+            'episode_id', 'scene_id', 'start_position', 'start_rotation',
+            'goals', 'instruction', 'reference_path'
+        ]
+        for i, ep in enumerate(self.episodes):
+            if not isinstance(ep, dict):
+                raise ValueError(f"Episode at index {i} is not a dictionary")
             for field in required_fields:
                 if field not in ep:
-                    raise ValueError(f"Missing required field '{field}' in episode {ep.get('episode_id', 'unknown')}")
-            if not ep['path']:
-                raise ValueError(f"No path found in episode {ep['episode_id']}")
+                    raise ValueError(f"Missing required field '{field}' in episode {ep.get('episode_id', f'at index {i}')}")
+            if not ep['reference_path']:
+                raise ValueError(f"No reference path found in episode {ep.get('episode_id', f'at index {i}')}")
                 
     def _preprocess_instruction(self, instruction):
         """Preprocess instruction text into tokens."""
-        # Simple tokenization (split by space)
-        tokens = instruction.lower().split()
-        # Pad or truncate to max_instruction_length
-        if len(tokens) > self.max_instruction_length:
-            tokens = tokens[:self.max_instruction_length]
+        # Use pre-tokenized instruction tokens if available
+        if isinstance(instruction, dict) and 'instruction_tokens' in instruction:
+            tokens = instruction['instruction_tokens']
+            # Pad or truncate to max_instruction_length
+            if len(tokens) > self.max_instruction_length:
+                tokens = tokens[:self.max_instruction_length]
+            else:
+                tokens = tokens + [0] * (self.max_instruction_length - len(tokens))
+            return torch.LongTensor(tokens)
         else:
-            tokens = tokens + ['<pad>'] * (self.max_instruction_length - len(tokens))
-        # Convert tokens to indices (simple mapping for now)
-        token_to_idx = {token: idx for idx, token in enumerate(set(tokens))}
-        indices = [token_to_idx.get(token, 0) for token in tokens]
-        return torch.LongTensor(indices)
+            # Fallback to text tokenization if needed
+            text = instruction['instruction_text'] if isinstance(instruction, dict) else instruction
+            tokens = text.lower().split()
+            if len(tokens) > self.max_instruction_length:
+                tokens = tokens[:self.max_instruction_length]
+            else:
+                tokens = tokens + ['<pad>'] * (self.max_instruction_length - len(tokens))
+            token_to_idx = {token: idx for idx, token in enumerate(set(tokens))}
+            indices = [token_to_idx.get(token, 0) for token in tokens]
+            return torch.LongTensor(indices)
         
     def _load_image(self, image_path):
         """Load and preprocess image with error handling."""
@@ -118,9 +165,8 @@ class VLNCEDataLoader(Dataset):
             instr_tokens = self._preprocess_instruction(ep['instruction'])
             
             # Extract path information
-            path = ep['path']
-            start_pos = torch.tensor([path[0]['heading'], path[0]['elevation']], dtype=torch.float32)
-            end_pos = torch.tensor([path[-1]['heading'], path[-1]['elevation']], dtype=torch.float32)
+            start_pos = torch.tensor(ep['start_position'], dtype=torch.float32)
+            end_pos = torch.tensor(ep['goals'][0]['position'], dtype=torch.float32)
             
             # For now, return dummy images since we don't have actual image data
             # Ensure CHW format for PyTorch
@@ -128,7 +174,7 @@ class VLNCEDataLoader(Dataset):
             depth = torch.zeros(1, *self.image_size)  # [1, H, W]
             
             # Get ground-truth actions if available
-            actions = torch.tensor(self.gt_actions.get(ep['episode_id'], []), dtype=torch.long)
+            actions = torch.tensor(self.gt_actions.get(str(ep['episode_id']), []), dtype=torch.long)
             
             return {
                 'episode_id': ep['episode_id'],
@@ -137,7 +183,7 @@ class VLNCEDataLoader(Dataset):
                 'depth': depth,
                 'start_pos': start_pos,
                 'end_pos': end_pos,
-                'scan': ep['scan'],
+                'scan': ep['scene_id'],
                 'gt_actions': actions
             }
             

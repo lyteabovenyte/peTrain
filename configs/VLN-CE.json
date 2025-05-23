@@ -2,13 +2,14 @@
     "data_dir": "data/VLN-CE/R2R_VLNCE_v1-3_preprocessed",
     "train_split": "train",
     "val_split": "val_unseen",
-    "vocab_size": 1000,
+    "vocab_size": 3000,
     "embed_dim": 300,
     "lang_hidden": 256,
     "visual_dim": 256,
     "attn_hidden": 256,
     "policy_hidden": 128,
     "action_space": 6,
+    "max_instruction_length": 80,
     
     "training": {
         "lr": 1e-4,
@@ -35,11 +36,13 @@
         "lang_encoder": {
             "type": "transformer",
             "model_name": "distilbert-base-uncased",
-            "hidden_dim": 256
+            "hidden_dim": 256,
+            "max_instruction_length": 80
         },
         "visual_encoder": {
-            "type": "mobilenet",  // or "resnet" for slightly better accuracy
-            "pretrained": true
+            "type": "mobilenet",
+            "pretrained": true,
+            "input_size": [128, 128]
         },
         "cross_modal": {
             "visual_dim": 256,
@@ -49,10 +52,9 @@
             "num_layers": 2,
             "dropout": 0.1
         },
-    },
-
         "policy": {
             "hidden_dim": 256,
             "action_space": 6
         }
+    }
 }

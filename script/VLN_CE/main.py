@@ -2,59 +2,139 @@ import os
 import json
 import torch
 import sys
+import logging
+from pathlib import Path
 
 # Add the project root directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from models.VLN_CE.agent import VLNCEAgent
+from models.VLN_CE.encoders import EncoderFactory
 from script.VLN_CE.data_loader import VLNCEDataLoader
 from script.VLN_CE.train_a2c import train_a2c
 from script.VLN_CE.env import VLNCEEnv
 
+def setup_logging(config):
+    """Setup logging configuration."""
+    log_dir = Path(config.get('log_dir', 'logs'))
+    log_dir.mkdir(exist_ok=True)
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_dir / 'training.log'),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger(__name__)
+
 def load_config(config_path):
-    """Load configuration from JSON file."""
-    with open(config_path, 'r') as f:
-        config = json.load(f)
-    return config
+    """Load and validate configuration from JSON file."""
+    try:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        
+        # Validate required sections
+        required_sections = ['model', 'training', 'data_dir', 'train_split', 'val_split']
+        for section in required_sections:
+            if section not in config:
+                raise ValueError(f"Missing required section '{section}' in config")
+        
+        # Validate model configuration
+        model_config = config['model']
+        required_model_sections = ['lang_encoder', 'visual_encoder', 'cross_modal', 'policy']
+        for section in required_model_sections:
+            if section not in model_config:
+                raise ValueError(f"Missing required section '{section}' in model config")
+        
+        return config
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in config file: {e}")
+    except Exception as e:
+        raise ValueError(f"Error loading config: {e}")
+
+def setup_device():
+    """Setup and return the appropriate device."""
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")  # For M1 Mac
+        logging.info("Using MPS (Metal Performance Shaders) device")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+        logging.info("Using CUDA device")
+    else:
+        device = torch.device("cpu")
+        logging.info("Using CPU device")
+    return device
+
+def load_custom_encoders(config):
+    """Load any custom encoder modules specified in the config."""
+    # Load the default custom encoders module
+    EncoderFactory.load_custom_encoders(['models.VLN_CE.custom_encoders'])
+    logging.info("Loaded custom encoder modules")
+
+def create_data_loader(config, split):
+    """Create and return a data loader for the specified split."""
+    return VLNCEDataLoader(
+        data_dir=config['data_dir'],
+        split=split,
+        max_instruction_length=config.get('max_instruction_length', 80),
+        image_size=tuple(config['model']['visual_encoder'].get('input_size', [128, 128]))
+    )
 
 def main():
     # Load configuration
-    config = load_config('configs/VLN-CE.json')
+    config_path = 'configs/VLN-CE.json'
+    config = load_config(config_path)
     
-    # Set device
-    device = torch.device('cpu')  # Using CPU for M1 MacBook
+    # Setup logging
+    logger = setup_logging(config)
+    logger.info("Starting VLN-CE training")
     
-    # Create data loader
-    print("Creating data loader...")
-    data_loader = VLNCEDataLoader(
-        data_dir=config['data_dir'],
-        split=config['train_split'],
-        max_instruction_length=config['model']['max_instruction_length'],
-        image_size=tuple(config['model']['input_size'])
-    )
+    # Setup device
+    device = setup_device()
+    logger.info(f"Using device: {device}")
+    
+    # Load custom encoders
+    logger.info("Loading custom encoders...")
+    load_custom_encoders(config)
+    
+    # Create data loaders
+    logger.info("Creating data loaders...")
+    train_loader = create_data_loader(config, config['train_split'])
+    val_loader = create_data_loader(config, config['val_split'])
     
     # Create agent
-    print("Creating agent...")
-    agent = VLNCEAgent(
-        vocab_size=config['vocab_size'],
-        embed_dim=config['embed_dim'],
-        lang_hidden=config['lang_hidden'],
-        visual_dim=config['visual_dim'],
-        attn_hidden=config['attn_hidden'],
-        policy_hidden=config['policy_hidden'],
-        action_space=config['action_space']
-    ).to(device)
+    logger.info("Creating agent...")
+    agent = VLNCEAgent(config['model']).to(device)
+    
+    # Log model architecture
+    logger.info("Model architecture:")
+    logger.info(f"Language encoder: {config['model']['lang_encoder']['type']}")
+    logger.info(f"Visual encoder: {config['model']['visual_encoder']['type']}")
+    logger.info(f"Cross-modal transformer: {config['model']['cross_modal']['num_layers']} layers")
     
     # Create environment
-    print("Creating environment...")
+    logger.info("Creating environment...")
     env = VLNCEEnv(config)
     
     # Start training
-    print("Starting training...")
-    train_a2c(agent, env, config['training'])
-    
-    # Cleanup
-    env.close()
+    logger.info("Starting training...")
+    try:
+        train_a2c(
+            agent=agent,
+            env=env,
+            config=config['training'],
+            train_loader=train_loader,
+            val_loader=val_loader,
+            device=device
+        )
+    except Exception as e:
+        logger.error(f"Training failed: {e}")
+        raise
+    finally:
+        env.close()
+        logger.info("Training finished")
 
 if __name__ == "__main__":
     main() 

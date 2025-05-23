@@ -8,6 +8,7 @@
 - [x] command-based navigation system using (Matterport3D)[https://niessner.github.io/Matterport/#download] for Vision-and-Language Navigation in Continuous Environments(VLN-CE)
 
 - Improvement specific to VLN-CE:
+    - [x] Using a custom environment for VLN-CE that implements the *Gymnasium* interface. This provides similar functionality to *Habitat* but with a simpler implementation.
     - [x] Replace simple cross-attention with **cross-modal transformers** like those in ViLBERT
     
 

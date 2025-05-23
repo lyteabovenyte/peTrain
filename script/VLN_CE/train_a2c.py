@@ -8,10 +8,13 @@ import json
 from datetime import datetime
 
 class A2CTrainer:
-    def __init__(self, agent, env, config):
+    def __init__(self, agent, env, config, train_loader=None, val_loader=None, device=None):
         self.agent = agent
         self.env = env
         self.config = config
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.device = device
         
         # Training hyperparameters
         self.gamma = config.get('gamma', 0.99)
@@ -58,7 +61,7 @@ class A2CTrainer:
             td_error = r + self.gamma * v * (1 - d) - v
             A = td_error + self.gamma * self.gamma * A * (1 - d)
             advantages.insert(0, A)
-        return torch.tensor(returns), torch.tensor(advantages)
+        return torch.tensor(returns, device=self.device), torch.tensor(advantages, device=self.device)
     
     def save_checkpoint(self, episode, metrics):
         """Save model checkpoint and training metrics."""
@@ -95,9 +98,9 @@ class A2CTrainer:
             
             while not done:
                 # Preprocess observations and ensure they require gradients
-                rgb = torch.from_numpy(obs['rgb']).float().unsqueeze(0).requires_grad_(True)
-                depth = torch.from_numpy(obs['depth']).float().unsqueeze(0).requires_grad_(True)
-                instr = torch.LongTensor(obs['instr_tokens']).unsqueeze(0)
+                rgb = torch.from_numpy(obs['rgb']).float().unsqueeze(0).to(self.device).requires_grad_(True)
+                depth = torch.from_numpy(obs['depth']).float().unsqueeze(0).to(self.device).requires_grad_(True)
+                instr = torch.LongTensor(obs['instr_tokens']).unsqueeze(0).to(self.device)
                 
                 # Forward pass with gradient computation
                 logits, value = self.agent(rgb, depth, instr)
@@ -130,12 +133,16 @@ class A2CTrainer:
                 rewards, values, dones
             )
             
+            # Move returns and advantages to the correct device
+            returns = returns.to(self.device)
+            advantages = advantages.to(self.device)
+            
             # Normalize advantages
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
             
             # Convert to tensors and ensure they require gradients
-            log_probs = torch.cat(log_probs).requires_grad_(True)
-            values = torch.cat(values).requires_grad_(True)
+            log_probs = torch.cat(log_probs).to(self.device).requires_grad_(True)
+            values = torch.cat(values).to(self.device).requires_grad_(True)
             
             # Compute losses
             policy_loss = -(log_probs * advantages).mean()
@@ -184,7 +191,7 @@ class A2CTrainer:
             del log_probs, values, rewards, dones, returns, advantages
             torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
-def train_a2c(agent, env, config):
+def train_a2c(agent, env, config, train_loader=None, val_loader=None, device=None):
     """Wrapper function to start training."""
-    trainer = A2CTrainer(agent, env, config)
+    trainer = A2CTrainer(agent, env, config, train_loader, val_loader, device)
     trainer.train()

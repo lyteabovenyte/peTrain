@@ -19,30 +19,37 @@ class VLNCEAgent(nn.Module):
                 - policy: dict with policy parameters
         """
         super().__init__()
+        self.config = config
         
-        # Create language encoder
-        self.lang_enc = EncoderFactory.create_language_encoder(
-            **config['lang_encoder']
-        )
-        
-        # Create visual encoder
-        self.vis_enc = EncoderFactory.create_visual_encoder(
+        # Initialize encoders
+        self.visual_encoder = EncoderFactory.create_visual_encoder(
+            config['visual_encoder']['type'],
             **config['visual_encoder']
         )
         
-        # Create cross-modal transformer
-        self.attn = CrossModalTransformer(
-            visual_dim=config['cross_modal']['visual_dim'],
-            lang_dim=config['cross_modal']['lang_dim'],
-            hidden_dim=config['cross_modal']['hidden_dim'],
-            num_heads=config['cross_modal'].get('num_heads', 8),
-            num_layers=config['cross_modal'].get('num_layers', 2),
-            dropout=config['cross_modal'].get('dropout', 0.1)
+        self.language_encoder = EncoderFactory.create_language_encoder(
+            config['lang_encoder']['type'],
+            **config['lang_encoder']
         )
         
-        # Create policy network
+        # Get encoder output dimensions
+        self.visual_dim = config['cross_modal']['visual_dim']
+        self.lang_dim = config['cross_modal']['lang_dim']
+        self.hidden_dim = config['cross_modal']['hidden_dim']
+        
+        # Cross-modal transformer
+        self.cross_modal = CrossModalTransformer(
+            visual_dim=self.visual_dim,
+            lang_dim=self.lang_dim,
+            hidden_dim=self.hidden_dim,
+            num_heads=config['cross_modal']['num_heads'],
+            num_layers=config['cross_modal']['num_layers'],
+            dropout=config['cross_modal']['dropout']
+        )
+        
+        # Policy network
         self.policy = VLNPolicy(
-            input_dim=config['cross_modal']['hidden_dim'],
+            input_dim=self.hidden_dim,
             hidden_dim=config['policy']['hidden_dim'],
             action_space=config['policy']['action_space']
         )
@@ -51,24 +58,25 @@ class VLNCEAgent(nn.Module):
         for param in self.parameters():
             param.requires_grad = True
     
-    def forward(self, rgb, depth, instr_tokens):
+    def forward(self, rgb, depth, instr):
         """
-        rgb: [B,3,H,W], depth: [B,1,H,W], instr_tokens: [B,L]
-        Returns: action_logits, state_values
+        rgb: [B, 3, H, W]
+        depth: [B, 1, H, W]
+        instr: [B, L]
         """
-        # Encode language
-        lang_feats, _ = self.lang_enc(instr_tokens)  # [B,L,lang_hidden]
+        # Encode visual features
+        visual_feats = self.visual_encoder(rgb, depth)  # [B, C_v, H', W']
         
-        # Encode vision
-        vis_feats = self.vis_enc(rgb, depth)  # [B, C, H', W']
+        # Encode language features
+        lang_feats = self.language_encoder(instr)  # [B, L, C_l]
         
-        # Fuse modalities via transformer
-        fused = self.attn(vis_feats, lang_feats)  # [B, attn_hidden]
+        # Cross-modal fusion
+        fused = self.cross_modal(visual_feats, lang_feats)  # [B, hidden_dim]
         
-        # Policy forward
-        logits, value = self.policy(fused)  # [B, action_space], [B,1]
+        # Policy and value predictions
+        logits, value = self.policy(fused)  # [B, action_space], [B, 1]
         
-        return logits, value.squeeze(1)
+        return logits, value
     
     @classmethod
     def from_config(cls, config_path):

@@ -17,12 +17,15 @@ class VLNCEEnv(gym.Env):
         # Define action space (discrete actions)
         self.action_space = spaces.Discrete(6)  # 6 actions: forward, left, right, up, down, stop
         
+        # Get max_instruction_length from the correct location in config
+        max_instruction_length = config.get('max_instruction_length', 80)  # Default to 80 if not specified
+        
         # Define observation space (RGB + depth)
         self.observation_space = spaces.Dict({
             'rgb': spaces.Box(low=0, high=255, shape=(224, 224, 3), dtype=np.uint8),
             'depth': spaces.Box(low=0, high=1, shape=(224, 224, 1), dtype=np.float32),
             'instr_tokens': spaces.Box(low=0, high=config['vocab_size'], 
-                                     shape=(config['model']['max_instruction_length'],), 
+                                     shape=(max_instruction_length,), 
                                      dtype=np.int64)
         })
         
@@ -42,6 +45,7 @@ class VLNCEEnv(gym.Env):
         self.instruction_tokens = None
         self.steps = 0
         self.max_steps = config.get('max_steps', 100)
+        self.max_instruction_length = max_instruction_length
         
     def reset(self, seed=None, options=None):
         """Reset the environment to initial state."""
@@ -55,7 +59,7 @@ class VLNCEEnv(gym.Env):
         self.steps = 0
         
         # Generate dummy instruction tokens (replace with actual instruction processing)
-        self.instruction_tokens = np.zeros(self.config['model']['max_instruction_length'], dtype=np.int64)
+        self.instruction_tokens = np.zeros(self.max_instruction_length, dtype=np.int64)
         
         # Generate initial observation
         obs = self._get_observation()
