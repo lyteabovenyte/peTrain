@@ -13,12 +13,13 @@ class VLNCEDataLoader(Dataset):
     Each episode includes instruction tokens, start pose, goal, and reference path.
     If ground-truth actions are available, they can be loaded as well.
     """
-    def __init__(self, data_dir, split, max_instruction_length=80, image_size=(128, 128)):
+    def __init__(self, data_dir, split, max_instruction_length=80, image_size=(128, 128), limit=None):
         """
         data_dir: root directory for VLN-CE data (e.g., ../data/VLN-CE/R2R_VLNCE_v1-3_preprocessed/)
         split: 'train', 'val_seen', or 'val_unseen'
         max_instruction_length: maximum number of tokens in instructions
         image_size: target size for RGB images
+        limit: if not None, only load the first 'limit' episodes (for debugging)
         """
         super().__init__()
         self.data_dir = data_dir
@@ -102,6 +103,10 @@ class VLNCEDataLoader(Dataset):
                 
         # Validate episodes
         self._validate_episodes()
+        
+        # Subsample episodes if limit is set
+        if limit is not None:
+            self.episodes = self.episodes[:limit]
         
         # Cache for token indices to reduce computation
         self.token_cache = {}

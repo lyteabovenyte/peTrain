@@ -38,3 +38,29 @@ def train_dagger(agent, dataset, epochs=10, batch_size=4, lr=1e-4):
             optimizer.step()
         
         print(f"Epoch {epoch}: imitation loss = {loss.item():.4f}")
+
+if __name__ == "__main__":
+    import sys
+    import os
+    import json
+    from models.VLN_CE.agent import VLNCEAgent
+    from script.VLN_CE.data_loader import VLNCEDataLoader
+
+    # Use a debug config or fallback to default
+    config_path = sys.argv[1] if len(sys.argv) > 1 else "configs/VLN-CE.json"
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+
+    # Load agent and dataset (limit to 5 episodes for fast debug)
+    agent = VLNCEAgent(config['model'])
+    dataset = VLNCEDataLoader(
+        data_dir=config['data_dir'],
+        split=config['train_split'],
+        max_instruction_length=config.get('max_instruction_length', 80),
+        image_size=tuple(config['model']['visual_encoder'].get('input_size', [128, 128])),
+        limit=5
+    )
+
+    print("[DAgger Debug] Training on 5 episodes for 2 epochs...")
+    train_dagger(agent, dataset, epochs=2, batch_size=2, lr=1e-4)
+    print("[DAgger Debug] Done.")
