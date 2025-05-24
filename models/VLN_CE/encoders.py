@@ -164,14 +164,20 @@ class TransformerEncoder(BaseLanguageEncoder):
 
 @EncoderRegistry.register_visual_encoder('resnet')
 class ResNetEncoder(BaseVisualEncoder):
-    """Lightweight ResNet-based visual encoder."""
-    def __init__(self, pretrained: bool = False, use_depth: bool = False, **kwargs):
+    """Lightweight ResNet-based visual encoder with depth fusion strategies.
+    Supports fusion_strategy: 'early', 'mid', 'late', or 'none'.
+    - early: Concatenate depth as 4th channel to RGB and use a modified first conv layer.
+    - mid: Process RGB and depth separately, then fuse after initial layers (default, previous behavior).
+    - late: Process RGB and depth through separate backbones, then fuse at the feature level.
+    - none: Ignore depth.
+    """
+    def __init__(self, pretrained: bool = False, use_depth: bool = False, fusion_strategy: str = 'mid', **kwargs):
         super().__init__()
         self.use_depth = use_depth
+        self.fusion_strategy = fusion_strategy
         # Use smaller ResNet variant
-        self.model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=pretrained)
-        # Remove unnecessary layers
-        self.model = nn.Sequential(*list(self.model.children())[:-2])  # Remove avgpool and fc
+        self.rgb_model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=pretrained)
+        self.rgb_model = nn.Sequential(*list(self.rgb_model.children())[:-2])  # Remove avgpool and fc
         # Add projection to reduce feature dimensions
         self.projection = nn.Sequential(
             nn.Conv2d(512, 256, kernel_size=1),
@@ -181,14 +187,82 @@ class ResNetEncoder(BaseVisualEncoder):
         self.config = {
             'pretrained': pretrained,
             'use_depth': use_depth,
+            'fusion_strategy': fusion_strategy,
             **kwargs
         }
-    
+        if use_depth and fusion_strategy == 'early':
+            # Early fusion: modify first conv layer to accept 4 channels
+            from torchvision.models.resnet import BasicBlock
+            import torchvision.models as models
+            backbone = models.resnet18(pretrained=pretrained)
+            conv1 = backbone.conv1
+            new_conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            with torch.no_grad():
+                new_conv1.weight[:, :3] = conv1.weight
+                new_conv1.weight[:, 3:] = conv1.weight[:, :1]  # Copy first channel weights for depth
+            self.rgb_model[0] = new_conv1
+        if use_depth and fusion_strategy == 'mid':
+            # Mid fusion: process depth separately, then fuse
+            self.depth_conv = nn.Sequential(
+                nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False),
+                nn.BatchNorm2d(64),
+                nn.ReLU(inplace=True)
+            )
+            # Initialize depth conv with RGB first-channel weights
+            backbone = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=pretrained)
+            self.depth_conv[0].weight.data = backbone.conv1.weight.data.mean(dim=1, keepdim=True)
+            self.fusion = nn.Sequential(
+                nn.Conv2d(512 * 2, 256, kernel_size=1),
+                nn.BatchNorm2d(256),
+                nn.ReLU(inplace=True)
+            )
+        if use_depth and fusion_strategy == 'late':
+            # Late fusion: separate backbones for RGB and depth
+            self.depth_model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=pretrained)
+            self.depth_model = nn.Sequential(*list(self.depth_model.children())[:-2])
+            self.late_fusion = nn.Sequential(
+                nn.Conv2d(512 * 2, 512, kernel_size=1),
+                nn.BatchNorm2d(512),
+                nn.ReLU(inplace=True)
+            )
     def forward(self, rgb, depth=None):
-        # Process RGB
-        features = self.model(rgb)
-        features = self.projection(features)
-        return features
+        if not self.use_depth or self.fusion_strategy == 'none' or depth is None:
+            # Only RGB
+            features = self.rgb_model(rgb)
+            features = self.projection(features)
+            return features
+        if self.fusion_strategy == 'early':
+            # Early fusion: concatenate depth as 4th channel
+            x = torch.cat([rgb, depth], dim=1)  # [B,4,H,W]
+            features = self.rgb_model(x)
+            features = self.projection(features)
+            return features
+        elif self.fusion_strategy == 'mid':
+            # Mid fusion: process separately, then fuse
+            rgb_feats = self.rgb_model(rgb)
+            depth_feats = self.depth_conv(depth)
+            if rgb_feats.size() != depth_feats.size():
+                depth_feats = nn.functional.interpolate(
+                    depth_feats, size=rgb_feats.shape[2:], mode='bilinear', align_corners=False)
+            combined = torch.cat([rgb_feats, depth_feats], dim=1)
+            feats = self.fusion(combined)
+            return feats
+        elif self.fusion_strategy == 'late':
+            # Late fusion: separate backbones, then fuse
+            rgb_feats = self.rgb_model(rgb)
+            depth_feats = self.depth_model(depth)
+            if rgb_feats.size() != depth_feats.size():
+                depth_feats = nn.functional.interpolate(
+                    depth_feats, size=rgb_feats.shape[2:], mode='bilinear', align_corners=False)
+            combined = torch.cat([rgb_feats, depth_feats], dim=1)
+            feats = self.late_fusion(combined)
+            feats = self.projection(feats)
+            return feats
+        else:
+            # Default to RGB only
+            features = self.rgb_model(rgb)
+            features = self.projection(features)
+            return features
 
 @EncoderRegistry.register_visual_encoder('vit')
 class ViTEncoder(BaseVisualEncoder):

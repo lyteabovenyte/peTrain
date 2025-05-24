@@ -12,7 +12,7 @@
     - [x] Replace simple cross-attention with **cross-modal transformers** like those in ViLBERT
     - [x] Use ViT for visual encoding to better capture object-level semantics.
     - [x] Use BERT, RoBERTa, or DistilBERT for language understanding. (DistilBERT is implemented but you can change config files based on your preferences
-    
+    - [x] Integrating explicit depth fusion strategies to visual encoders, you can specify the fusion strategy in the config file for each specific encoder.
 
 ### Future:
 
@@ -36,8 +36,9 @@
 
 ### Tracking VLN-CE loss after each improvement for just 30 episodes:
 - changing simple CorssModalAttention to ViLBERT and CrossModalTransformer improved the generalization by **18.1%**
-- improving **memory management**, optimization strategy and tuning learning rate and initialization plus using pre-trained encoders like **DistilBERT**, **ViT encoder** and **MobileNet** lang-encoder dropped loss by **98%** to *0.02* and lead to performance prior to last stage and basic strcuture in contrast with being more computationally expensive. memory management is more efficient and also leads to overfit. data augmentation is needed for better data and it's gonna be the next stage to tune dataset for more diverse set of instructions and pathways.
-- 
+- improving **memory management**, optimization strategy and tuning learning rate and initialization plus using pre-trained encoders like **DistilBERT**, **ViT encoder** and **MobileNet** lang-encoder dropped loss by **98%** to *0.026* and lead to performance prior to last stage and basic strcuture in contrast with being more computationally expensive. memory management is more efficient and also leads to overfit. data augmentation is needed for better data and it's gonna be the next stage to tune dataset for more diverse set of instructions and pathways.
+- Integrating explicit depth fusion strategies to visual encoders improved performance by **11.54%** prior to the previous stage and dropped the loss to *0.023*.
+ 
 
 
 ##### Usage:

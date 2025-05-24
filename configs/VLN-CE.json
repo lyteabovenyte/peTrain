@@ -55,7 +55,9 @@
             "type": "mobilenet",
             "pretrained": true,
             "input_size": [128, 128],
-            "dropout": 0.1
+            "dropout": 0.1,
+            "use_depth": true,
+            "fusion_strategy": "mid"
         },
         "cross_modal": {
             "visual_dim": 256,
