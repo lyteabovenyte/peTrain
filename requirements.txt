@@ -1,25 +1,28 @@
+# Core deep learning and vision
 torch>=1.9.0
 torchvision>=0.10.0
-numpy>=1.19.2
-# habitat-sim>=0.2.1
-# habitat
-# habitat-lab>=0.2.1
-gymnasium>=0.29.1
-tqdm>=4.62.3
-Pillow>=8.3.1
-matplotlib>=3.4.3
-# learning3d
-numpy<3.0.0,>=2.0.0
-# scipy
-matplotlib
-pandas
-# cli
-fastai
-scikit-learn
-# hugging-face
-transformers
-torchvision
-huggingface-hub
-# perfect
-pillow
 timm
+transformers
+huggingface-hub
+
+# Data processing
+numpy>=1.19.2,<3.0.0
+Pillow>=8.3.1
+
+# Progress bar
+tqdm>=4.62.3
+
+# Environment and RL
+gymnasium>=0.29.1
+
+# Point cloud and 3D
+open3d
+
+# Image processing
+opencv-python
+
+# AI2THOR for data generation
+ai2thor
+
+# Optional: plotting/visualization
+# matplotlib  # Uncomment if you need plotting

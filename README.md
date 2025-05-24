@@ -1,4 +1,8 @@
-#### Let's build AI-powered software based on SOTA models and architecture and try to capture full potential of these interesting innovations.
+### Did you ever imagined a Smart Pet which can be trained to understand your voice commands and navigate in the house to the destination based on vibration on it's necklace?
+
+#### Trying to Build VLN-CE model and integrate the latest novel improvements and architectural patterns
+
+###### The core purpose of this project is to build a **Software 2.0** style model for my pet necklace to help him navigate in the house and understand my voice commands through vibrator in necklace.
 
 
 ### Features:
