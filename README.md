@@ -1,5 +1,12 @@
 ### Did you ever imagined a Smart Pet which can be trained to understand your voice commands and navigate in the house to the destination based on vibration on it's necklace?
 
+<p align="center">
+  <img src="images/necklace.png" alt="Pet Necklace" width="280" style="margin: 0 10px; border-radius: 12px; box-shadow: 0 2px 8px #0002;"/>
+  <img src="images/nacklace-2.png" alt="Pet Necklace 2" width="280" style="margin: 0 10px; border-radius: 12px; box-shadow: 0 2px 8px #0002;"/>
+  <br/>
+  <sub><b>Prototype: Smart Pet Necklace for Command-based Navigation</b></sub>
+</p>
+
 #### Trying to Build VLN-CE model and integrate the latest novel improvements and architectural patterns
 
 ###### The core purpose of this project is to build a **Software 2.0** style model for my pet necklace to help him navigate in the house and understand my voice commands through vibrator in necklace.
