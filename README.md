@@ -1,4 +1,4 @@
-### Did you ever imagined a Smart Pet which can be trained to understand your voice commands and navigate in the house to the destination based on vibration on it's necklace?
+### Have you ever dreamed of a *Smart Pet* which can be trained in modern world based on modern approaches?
 
 <p align="center">
   <img src="images/necklace.png" alt="Pet Necklace" width="260" style="border-radius: 12px; box-shadow: 0 2px 8px #0002;">
@@ -16,7 +16,7 @@
 
 #### Trying to Build VLN-CE model and integrate the latest novel improvements and architectural patterns
 
-###### The core purpose of this project is to build a **Software 2.0** style model for my pet necklace to help him navigate in the house and understand my voice commands through vibrator in necklace.
+###### The core purpose of this project is to build a **Software 2.0** style model for my pet necklace to help him navigate in in-door environments based on my voice commands through vibrator in his/her necklace.
 
 
 ### Features:
@@ -36,13 +36,14 @@
 
 - [ ] generate physics-based data using [AI2THOR](https://ai2thor.allenai.org) and integrate physics-informed models
 - [ ] implementing VLN_CE model using [Habitat-Lab](https://github.com/facebookresearch/habitat-lab) instead of [Gymnasium](https://arxiv.org/abs/2407.17032)
+- [ ] training on [ScaleVLN](https://scalevln.github.io) dataset for better generalization. (needs GPU 🥲
 
 - Specific to VLN-CE:
 
     - [ ] integrate [Language-Aligned Waypoint (LAW) Supervision for Vision-and-Language Navigation in Continuous Environments](https://3dlg-hcvc.github.io/LAW-VLNCE/?utm_source=chatgpt.com) into VLN-CE model
     - [ ] integrate [EnvEdit: Environment Editing for Vision-and-Language Navigation](https://arxiv.org/pdf/2203.15685) into VLN-CE model for data augmentation
     - [ ] integrate [VLN-PETL: Parameter-Efficient Transfer Learning for Vision-and-Language Navigation](https://arxiv.org/pdf/2308.10172) for reducing computational costs
-    - [ 
+    - [ ] integrate [Dynam3D: Dynamic Layered 3D Tokens Empower VLM for Vision-and-Language Navigation](https://arxiv.org/pdf/2505.11383)
 
 ### Ref:
 - [PointNet++](https://github.com/fxia22/pointnet2) for 3D object detection and scene segmentation
