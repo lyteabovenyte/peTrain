@@ -31,12 +31,14 @@
     - [x] Use ViT for visual encoding to better capture object-level semantics.
     - [x] Use BERT, RoBERTa, or DistilBERT for language understanding. (DistilBERT is implemented but you can change config files based on your preferences
     - [x] Integrating explicit depth fusion strategies to visual encoders, you can specify the fusion strategy in the config file for each specific encoder.
-
+    - [x] Integrating [Language-Aligned Waypoint (LAW) Supervision for Vision-and-Language Navigation in Continuous Environments](https://3dlg-hcvc.github.io/LAW-VLNCE/) into VLN-CE model for LAW supervision and tuning the DataLoader to split the dataset for better LAW supervision.
 ### Future:
 
 - [ ] generate physics-based data using [AI2THOR](https://ai2thor.allenai.org) and integrate physics-informed models
 - [ ] implementing VLN_CE model using [Habitat-Lab](https://github.com/facebookresearch/habitat-lab) instead of [Gymnasium](https://arxiv.org/abs/2407.17032)
 - [ ] training on [ScaleVLN](https://scalevln.github.io) dataset for better generalization. (needs GPU 🥲
+- [ ] provide actual images for training and testing. for now our visual encoder is using Dummy images in dataloader for lack of actual images.
+
 
 - Specific to VLN-CE:
 
@@ -44,7 +46,9 @@
     - [ ] integrate [EnvEdit: Environment Editing for Vision-and-Language Navigation](https://arxiv.org/pdf/2203.15685) into VLN-CE model for data augmentation
     - [ ] integrate [VLN-PETL: Parameter-Efficient Transfer Learning for Vision-and-Language Navigation](https://arxiv.org/pdf/2308.10172) for reducing computational costs
     - [ ] integrate [Dynam3D: Dynamic Layered 3D Tokens Empower VLM for Vision-and-Language Navigation](https://arxiv.org/pdf/2505.11383)
+    - [ ] using the navigation graph, or simulating the agent's pose step by step in LAW supervision.
 
+    
 ### Ref:
 - [PointNet++](https://github.com/fxia22/pointnet2) for 3D object detection and scene segmentation
 - [VLN-CE](https://github.com/jacobkrantz/VLN-CE) for Vision-and-Language Navigation in Continuous Environments
@@ -57,7 +61,7 @@
 - changing simple CorssModalAttention to ViLBERT and CrossModalTransformer improved the generalization by **18.1%**
 - improving **memory management**, optimization strategy and tuning learning rate and initialization plus using pre-trained encoders like **DistilBERT**, **ViT encoder** and **MobileNet** lang-encoder dropped loss by **98%** to *0.026* and lead to performance prior to last stage and basic strcuture in contrast with being more computationally expensive. memory management is more efficient and also leads to overfit. data augmentation is needed for better data and it's gonna be the next stage to tune dataset for more diverse set of instructions and pathways.
 - Integrating explicit depth fusion strategies to visual encoders improved performance by **11.54%** prior to the previous stage and dropped the loss to *0.023*.
- 
+- Integrating *LAW supervision* improved performance by ***94.78%** prior to last stage and dropped loss to *0.0012*, needs for GPU and Habitat are getting more to train on full-episodes and getting observation on training.
 
 
 ##### Usage:

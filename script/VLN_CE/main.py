@@ -4,6 +4,7 @@ import torch
 import sys
 import logging
 from pathlib import Path
+from torch.utils.data import DataLoader
 
 # Add the project root directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -73,14 +74,33 @@ def load_custom_encoders(config):
     EncoderFactory.load_custom_encoders(['models.VLN_CE.custom_encoders'])
     logging.info("Loaded custom encoder modules")
 
+# Custom collate function for LAW mode
+def law_collate_fn(batch):
+    batch_out = {}
+    for key in batch[0]:
+        if key == 'law_segments':
+            batch_out[key] = [item[key] for item in batch]
+        else:
+            if isinstance(batch[0][key], torch.Tensor):
+                batch_out[key] = torch.stack([item[key] for item in batch])
+            else:
+                batch_out[key] = [item[key] for item in batch]
+    return batch_out
+
 def create_data_loader(config, split):
     """Create and return a data loader for the specified split."""
-    return VLNCEDataLoader(
+    supervision_type = config['training'].get('supervision_type', 'goal')
+    dataset = VLNCEDataLoader(
         data_dir=config['data_dir'],
         split=split,
         max_instruction_length=config.get('max_instruction_length', 80),
-        image_size=tuple(config['model']['visual_encoder'].get('input_size', [128, 128]))
+        image_size=tuple(config['model']['visual_encoder'].get('input_size', [128, 128])),
+        supervision_type=supervision_type
     )
+    if supervision_type == 'LAW':
+        return DataLoader(dataset, batch_size=config['training'].get('batch_size', 4), shuffle=True, collate_fn=law_collate_fn)
+    else:
+        return DataLoader(dataset, batch_size=config['training'].get('batch_size', 4), shuffle=True)
 
 def main():
     # Load configuration

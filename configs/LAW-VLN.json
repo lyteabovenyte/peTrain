@@ -1,0 +1,78 @@
+{
+    "data_dir": "data/VLN-CE/R2R_VLNCE_v1-3_preprocessed",
+    "train_split": "train",
+    "val_split": "val_unseen",
+    "vocab_size": 3000,
+    "embed_dim": 128,
+    "lang_hidden": 128,
+    "visual_dim": 128,
+    "attn_hidden": 128,
+    "policy_hidden": 64,
+    "action_space": 6,
+    "max_instruction_length": 80,
+    
+    "training": {
+        "lr": 1e-4,
+        "batch_size": 4,
+        "epochs": 10,
+        "gamma": 0.99,
+        "max_grad_norm": 0.5,
+        "entropy_coef": 0.01,
+        "value_coef": 0.5,
+        "max_episodes": 10,
+        "save_interval": 5,
+        "max_steps": 30,
+        "num_workers": 0,
+        "checkpoint_interval": 2,
+        "warmup_steps": 100,
+        "gradient_accumulation_steps": 1,
+        "lr_scheduler": {
+            "type": "cosine",
+            "warmup_steps": 100,
+            "max_steps": 1000
+        },
+        "supervision_type": "LAW"
+    },
+    
+    "optimization": {
+        "use_amp": false,
+        "pin_memory": false,
+        "prefetch_factor": 1,
+        "weight_decay": 0.0,
+        "adam_eps": 1e-8,
+        "adam_beta1": 0.9,
+        "adam_beta2": 0.999
+    },
+    
+    "model": {
+        "lang_encoder": {
+            "type": "lstm",
+            "vocab_size": 3000,
+            "embed_dim": 128,
+            "hidden_dim": 128,
+            "num_layers": 1,
+            "dropout": 0.1
+        },
+        "visual_encoder": {
+            "type": "mobilenet",
+            "pretrained": false,
+            "input_size": [64, 64],
+            "dropout": 0.1,
+            "use_depth": false,
+            "fusion_strategy": "none"
+        },
+        "cross_modal": {
+            "visual_dim": 128,
+            "lang_dim": 128,
+            "hidden_dim": 128,
+            "num_heads": 2,
+            "num_layers": 1,
+            "dropout": 0.1
+        },
+        "policy": {
+            "hidden_dim": 64,
+            "action_space": 6,
+            "dropout": 0.1
+        }
+    }
+} 

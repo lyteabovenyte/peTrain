@@ -1,12 +1,32 @@
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from models.VLN_CE.encoders import EncoderFactory
+
+# Custom collate function for LAW mode
+def law_collate_fn(batch):
+    batch_out = {}
+    for key in batch[0]:
+        if key == 'law_segments':
+            batch_out[key] = [item[key] for item in batch]
+        else:
+            if isinstance(batch[0][key], torch.Tensor):
+                batch_out[key] = torch.stack([item[key] for item in batch])
+            else:
+                batch_out[key] = [item[key] for item in batch]
+    return batch_out
 
 def train_dagger(agent, dataset, epochs=10, batch_size=4, lr=1e-4):
     """
     Trains the agent with DAgger imitation learning on the given dataset.
     """
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    import json
+    # Detect LAW mode from dataset (by presence of law_segments in first item)
+    is_law = hasattr(dataset, 'supervision_type') and dataset.supervision_type == 'LAW'
+    if is_law:
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=law_collate_fn)
+    else:
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.Adam(agent.parameters(), lr=lr)
     
     agent.train()
@@ -45,11 +65,15 @@ if __name__ == "__main__":
     import json
     from models.VLN_CE.agent import VLNCEAgent
     from script.VLN_CE.data_loader import VLNCEDataLoader
+    from models.VLN_CE.encoders import EncoderFactory
 
     # Use a debug config or fallback to default
     config_path = sys.argv[1] if len(sys.argv) > 1 else "configs/VLN-CE.json"
     with open(config_path, 'r') as f:
         config = json.load(f)
+
+    # Register custom encoders (e.g., mobilenet)
+    EncoderFactory.load_custom_encoders(['models.VLN_CE.custom_encoders'])
 
     # Load agent and dataset (limit to 5 episodes for fast debug)
     agent = VLNCEAgent(config['model'])
