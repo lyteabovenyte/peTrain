@@ -1,5 +1,7 @@
 ### Have you ever dreamed of a *Smart Pet* which can be trained in modern world based on modern approaches?
 
+#### ⚠️ we are waiting for the product to be constructed, to be able to fit visual-encoders based on real-time observation data (RGB, Depth, etc.)⚠️
+
 <p align="center">
   <img src="images/necklace.png" alt="Pet Necklace" width="260" style="border-radius: 12px; box-shadow: 0 2px 8px #0002;">
   <br/>
@@ -37,7 +39,7 @@
 - [ ] generate physics-based data using [AI2THOR](https://ai2thor.allenai.org) and integrate physics-informed models
 - [ ] implementing VLN_CE model using [Habitat-Lab](https://github.com/facebookresearch/habitat-lab) instead of [Gymnasium](https://arxiv.org/abs/2407.17032)
 - [ ] training on [ScaleVLN](https://scalevln.github.io) dataset for better generalization. (needs GPU 🥲
-- [ ] provide actual images for training and testing. for now our visual encoder is using Dummy images in dataloader for lack of actual images.
+- [ ] provide actual images for training and testing. for now our visual encoder is using Dummy images in dataloader for lack of actual images and it makes the Visual-encoder to output Nan logits due to non uniform observatin.
 
 
 - Specific to VLN-CE:
