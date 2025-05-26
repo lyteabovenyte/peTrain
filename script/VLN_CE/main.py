@@ -5,6 +5,7 @@ import sys
 import logging
 from pathlib import Path
 from torch.utils.data import DataLoader
+import argparse
 
 # Add the project root directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -103,8 +104,13 @@ def create_data_loader(config, split):
         return DataLoader(dataset, batch_size=config['training'].get('batch_size', 4), shuffle=True)
 
 def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="VLN-CE Training Pipeline")
+    parser.add_argument('config', nargs='?', default='configs/VLN-CE.json', help='Path to the config file (default: configs/VLN-CE.json)')
+    args = parser.parse_args()
+
     # Load configuration
-    config_path = 'configs/VLN-CE.json'
+    config_path = args.config
     config = load_config(config_path)
     
     # Setup logging
